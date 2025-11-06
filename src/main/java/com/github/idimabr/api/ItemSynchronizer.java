@@ -91,7 +91,6 @@ public class ItemSynchronizer {
                 }
 
                 debug("Found " + missingItems.size() + " missing items");
-
                 int availableSlots = getAvailableInventorySlots(player);
                 debug("Available inventory slots: " + availableSlots);
 
@@ -157,7 +156,6 @@ public class ItemSynchronizer {
 
     private static Set<String> getInventoryGameShiftIds(Player player) {
         Set<String> ids = new HashSet<>();
-
         for (ItemStack item : player.getInventory().getContents()) {
             if (!isValidItem(item)) continue;
 
@@ -184,13 +182,6 @@ public class ItemSynchronizer {
         return empty;
     }
 
-    /**
-     * 🔥 RECRIAÇÃO PURA: Item é reconstruído 100% dos atributos salvos na API
-     * NÃO usa templates do MMOItems - apenas Material base
-     */
-    /**
-     * 🔥 RECRIAÇÃO PURA: Item é reconstruído 100% dos atributos salvos na API
-     */
     private static ItemStack recreateItemFromAttributes(GameShiftItem gsItem, Player player) {
         try {
             Type type = MMOItems.plugin.getTypes().get(gsItem.getItemType());
@@ -205,13 +196,10 @@ public class ItemSynchronizer {
                 return null;
             }
 
-            // Cria item base do template
             ItemStack item = mmoItem.newBuilder().build();
             if (item == null) return null;
 
             debug("# Starting create gameitem [" + gsItem.getGameshiftId() + "]");
-
-            // ==================== PASSO 1: Processar Atributos ====================
             Map<String, Object> parsedAttributes = new HashMap<>();
             String displayName = null;
             List<String> loreLines = new ArrayList<>();
@@ -224,35 +212,28 @@ public class ItemSynchronizer {
                 String traitType = attr.optString("traitType");
                 String rawValue = attr.optString("value");
 
-                // Remover aspas duplas externas (da API antiga)
                 rawValue = rawValue.replaceAll("^['\"]|['\"]$", "");
-
-                // Extrair display name
                 if (traitType.equals("mmoitems:MMOITEMS_NAME")) {
                     displayName = rawValue;
                     debug("✓ Found display name: " + displayName);
                     continue;
                 }
 
-                // Extrair lore
                 if (traitType.equals("mmoitems:MMOITEMS_DYNAMIC_LORE")) {
                     loreLines = parseLoreFromJson(rawValue);
                     debug("✓ Found lore with " + loreLines.size() + " lines");
                     continue;
                 }
 
-                // Extrair found_by
                 if (traitType.equals("minex:found_by")) {
                     foundBy = rawValue;
                     continue;
                 }
 
-                // Pular lore estática (já processamos a dinâmica)
                 if (traitType.equals("mmoitems:MMOITEMS_LORE")) {
                     continue;
                 }
 
-                // Processar stats do MMOItems
                 if (traitType.startsWith("mmoitems:")) {
                     String statName = traitType.substring("mmoitems:".length());
                     Object parsedValue = parseValueAutomatically(rawValue);
@@ -263,12 +244,10 @@ public class ItemSynchronizer {
                 }
             }
 
-            // Fallback para found_by
             if (foundBy == null || foundBy.isEmpty()) {
                 foundBy = player.getName();
             }
 
-            // ==================== PASSO 2: Aplicar Display Name ====================
             ItemMeta meta = item.getItemMeta();
             if (meta == null) {
                 debug("❌ Cannot get ItemMeta");
@@ -280,7 +259,6 @@ public class ItemSynchronizer {
                 debug("✓ Applied display name");
             }
 
-            // ==================== PASSO 3: Aplicar Lore Visual ====================
             if (!loreLines.isEmpty()) {
                 List<String> coloredLore = new ArrayList<>();
                 for (String line : loreLines) {
@@ -290,19 +268,13 @@ public class ItemSynchronizer {
                 debug("✓ Applied lore (" + loreLines.size() + " lines)");
             }
 
-            // Aplicar meta ANTES de mexer com NBT
             item.setItemMeta(meta);
-
-            // ==================== PASSO 4: Aplicar Tags NBT ====================
             NBTItem nbtItem = NBTItem.get(item);
             List<ItemTag> tags = new ArrayList<>();
-
-            // Tags de registro GameShift
             tags.add(new ItemTag(GAMESHIFT_ASSET_ID, gsItem.getGameshiftId()));
             tags.add(new ItemTag(GAMESHIFT_REGISTERED_AT, String.valueOf(System.currentTimeMillis())));
             tags.add(new ItemTag(GAMESHIFT_REGISTERED_BY, foundBy));
 
-            // Lore dinâmica (para o MMOItems)
             if (!loreLines.isEmpty()) {
                 JSONArray loreArray = new JSONArray();
                 for (String line : loreLines) {
@@ -311,22 +283,16 @@ public class ItemSynchronizer {
                 tags.add(new ItemTag("MMOITEMS_DYNAMIC_LORE", loreArray.toString()));
             }
 
-            // Aplicar stats do MMOItems
             for (Map.Entry<String, Object> entry : parsedAttributes.entrySet()) {
                 String statName = entry.getKey();
                 Object value = entry.getValue();
-
-                // Remove tag existente antes de adicionar
                 tags.removeIf(tag -> tag.getPath().equalsIgnoreCase(statName));
 
                 tags.add(new ItemTag(statName, value));
                 debug("✓ Applied NBT: " + statName + " = " + value + " (" + value.getClass().getSimpleName() + ")");
             }
 
-            // Adicionar todas as tags de uma vez
             nbtItem.addTag(tags);
-
-            // Retornar item final
             ItemStack finalItem = nbtItem.toItem();
             debug("✅ Item recreated successfully: " + gsItem.getGameshiftId());
 
@@ -339,10 +305,6 @@ public class ItemSynchronizer {
         }
     }
 
-    /**
-     * Parse robusto de lore JSON com fallbacks
-     * Lida com: JSONArray nativo, String com aspas simples envolvendo, e fallback manual
-     */
     private static List<String> parseLoreFromJson(String loreJson) {
         List<String> loreLines = new ArrayList<>();
 
@@ -351,15 +313,12 @@ public class ItemSynchronizer {
         }
 
         debug("📋 Parsing lore: " + loreJson.substring(0, Math.min(100, loreJson.length())) + "...");
-
-        // PASSO 1: Remover aspas simples externas se existirem: '[...]' → [...]
         String cleaned = loreJson.trim();
         if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
             cleaned = cleaned.substring(1, cleaned.length() - 1);
             debug("✓ Removed surrounding single quotes");
         }
 
-        // PASSO 2: Tentar parse direto (JSONArray válido)
         try {
             JSONArray loreArray = new JSONArray(cleaned);
             for (int i = 0; i < loreArray.length(); i++) {
@@ -371,11 +330,10 @@ public class ItemSynchronizer {
             debug("⚠ Not a valid JSONArray, trying sanitization...");
         }
 
-        // PASSO 3: Sanitizar aspas internas escapadas: \" → "
         try {
             String sanitized = cleaned
-                    .replace("\\\"", "\"")  // Unescape aspas duplas
-                    .replace("\\'", "'");   // Unescape aspas simples
+                    .replace("\\\"", "\"")
+                    .replace("\\'", "'");
 
             JSONArray loreArray = new JSONArray(sanitized);
             for (int i = 0; i < loreArray.length(); i++) {
@@ -387,21 +345,17 @@ public class ItemSynchronizer {
             debug("⚠ Sanitization failed, using manual split...");
         }
 
-        // PASSO 4: Fallback manual (split por vírgulas entre aspas)
         try {
             String content = cleaned;
-
-            // Remove colchetes externos
             if (content.startsWith("[")) content = content.substring(1);
             if (content.endsWith("]")) content = content.substring(0, content.length() - 1);
 
-            // Split por padrão: ", " ou ","
             String[] parts = content.split("\",\\s*\"");
 
             for (String part : parts) {
                 String line = part
-                        .replaceAll("^\"|\"$", "")     // Remove aspas nas pontas
-                        .replace("\\\"", "\"")          // Unescape interno
+                        .replaceAll("^\"|\"$", "")
+                        .replace("\\\"", "\"")
                         .replace("\\'", "'")
                         .trim();
 
@@ -421,23 +375,16 @@ public class ItemSynchronizer {
         return loreLines;
     }
 
-    /**
-     * Parse automático melhorado
-     * Lida com: JSONArray/JSONObject (com ou sem aspas simples), Boolean (1b/0b), Integer, Double, String
-     */
     private static Object parseValueAutomatically(String rawValue) {
         if (rawValue == null || rawValue.isEmpty()) return null;
 
         rawValue = rawValue.trim();
-
-        // ==================== PASSO 1: Remover Aspas Simples Externas ====================
-        // API antiga retorna: '{"key":"value"}' ou '[...]'
         if (rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length() > 2) {
             rawValue = rawValue.substring(1, rawValue.length() - 1);
             debug("  → Removed outer single quotes");
         }
 
-        // ==================== PASSO 2: Boolean (NBT format) ====================
+        // Boolean
         if (rawValue.equals("1b") || rawValue.equalsIgnoreCase("true")) {
             return true;
         }
@@ -445,14 +392,14 @@ public class ItemSynchronizer {
             return false;
         }
 
-        // ==================== PASSO 3: Integer (sem decimal) ====================
+        // Integer
         try {
             if (rawValue.matches("-?\\d+")) {
                 return Integer.parseInt(rawValue);
             }
         } catch (Exception ignored) {}
 
-        // ==================== PASSO 4: Double (decimal ou sufixo 'd') ====================
+        // Double
         try {
             String cleanValue = rawValue.toLowerCase().replace("d", "");
             if (rawValue.endsWith("d") || cleanValue.matches("-?\\d+\\.\\d+")) {
@@ -460,7 +407,7 @@ public class ItemSynchronizer {
             }
         } catch (Exception ignored) {}
 
-        // ==================== PASSO 5: JSONObject ====================
+        // JSONObject
         if (rawValue.startsWith("{")) {
             try {
                 // Sanitizar aspas escapadas antes de parsear
@@ -471,7 +418,7 @@ public class ItemSynchronizer {
             }
         }
 
-        // ==================== PASSO 6: JSONArray ====================
+        // JSON ARRAY
         if (rawValue.startsWith("[")) {
             try {
                 String sanitized = rawValue.replace("\\\"", "\"");
@@ -481,13 +428,9 @@ public class ItemSynchronizer {
             }
         }
 
-        // ==================== PASSO 7: Fallback String ====================
         return rawValue;
     }
 
-    /**
-     * Traduz códigos de cor Minecraft (&c -> §c)
-     */
     private static String translateColorCodes(String text) {
         if (text == null) return "";
         return text.replace("&", "§");

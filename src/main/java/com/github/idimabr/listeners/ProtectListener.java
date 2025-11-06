@@ -40,9 +40,6 @@ public class ProtectListener implements Listener {
     private final FinanceObjects plugin;
     private static final String GAMESHIFT_ASSET_ID = "GAMESHIFT_ASSET_ID";
 
-    /**
-     * Impede que itens registrados sejam droppados na morte
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerDeath(PlayerDeathEvent event) {
         List<ItemStack> drops = event.getDrops();
@@ -61,9 +58,6 @@ public class ProtectListener implements Listener {
         ));
     }
 
-    /**
-     * Restaura os itens registrados no inventário do jogador ao respawn
-     */
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
@@ -81,9 +75,6 @@ public class ProtectListener implements Listener {
         }, 1);
     }
 
-    /**
-     * Impede que itens registrados sejam dropados.
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onItemDrop(PlayerDropItemEvent event) {
         ItemStack item = event.getItemDrop().getItemStack();
@@ -93,9 +84,6 @@ public class ProtectListener implements Listener {
         }
     }
 
-    /**
-     * PROTEÇÃO COMPLETA - Impede que itens registrados saiam do inventário do jogador
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -108,8 +96,6 @@ public class ProtectListener implements Listener {
         boolean currentRegistered = isRegistered(current);
         boolean cursorRegistered = isRegistered(cursor);
         boolean hotbarRegistered = isRegistered(hotbar);
-
-        // Se nenhum item registrado está envolvido, permite
         if (!currentRegistered && !cursorRegistered && !hotbarRegistered) {
             return;
         }
@@ -117,8 +103,6 @@ public class ProtectListener implements Listener {
         Inventory clickedInventory = event.getClickedInventory();
         Inventory topInventory = event.getView().getTopInventory();
         Inventory playerInventory = player.getInventory();
-
-        // Se o inventário clicado não é o do jogador, bloqueia TUDO
         if (clickedInventory != null && clickedInventory != playerInventory) {
             if (currentRegistered || cursorRegistered || hotbarRegistered) {
                 event.setCancelled(true);
@@ -127,34 +111,26 @@ public class ProtectListener implements Listener {
             }
         }
 
-        // Se clicou no inventário do jogador, mas o top inventory não é o do jogador
-        // (ou seja, tem um baú/fornalha/etc aberto)
         if (topInventory != null && topInventory != playerInventory && topInventory.getType() != InventoryType.CRAFTING) {
-
-            // Bloqueia SHIFT+CLICK de item registrado
             if (event.isShiftClick() && currentRegistered) {
                 event.setCancelled(true);
                 debug("Prevented SHIFT+CLICK of GameShift item");
                 return;
             }
 
-            // Bloqueia Number Keys (hotbar swap) com item registrado
             if (event.getHotbarButton() >= 0 && (currentRegistered || hotbarRegistered)) {
                 event.setCancelled(true);
                 debug("Prevented NUMBER KEY swap of GameShift item");
                 return;
             }
 
-            // Bloqueia DOUBLE CLICK com item registrado no cursor
             if (event.getClick() == ClickType.DOUBLE_CLICK && cursorRegistered) {
                 event.setCancelled(true);
                 debug("Prevented DOUBLE CLICK with GameShift item");
                 return;
             }
 
-            // Bloqueia pegar item registrado do inventário do jogador quando outro inventário está aberto
             if (clickedInventory == playerInventory && currentRegistered && cursorRegistered == false) {
-                // Se está tentando pegar o item (cursor vazio ou diferente)
                 if (cursor == null || cursor.getType().isAir() || !cursor.isSimilar(current)) {
                     event.setCancelled(true);
                     debug("Prevented picking up GameShift item with other inventory open");
@@ -162,8 +138,6 @@ public class ProtectListener implements Listener {
                 }
             }
 
-            // Bloqueia colocar item registrado do cursor no inventário do jogador
-            // quando outro inventário está aberto (previne exploits)
             if (clickedInventory == playerInventory && cursorRegistered) {
                 event.setCancelled(true);
                 debug("Prevented placing GameShift item from cursor with other inventory open");
@@ -172,9 +146,6 @@ public class ProtectListener implements Listener {
         }
     }
 
-    /**
-     * Impede drag de itens registrados quando outro inventário está aberto
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -184,18 +155,13 @@ public class ProtectListener implements Listener {
 
         Inventory topInventory = event.getView().getTopInventory();
         Inventory playerInventory = player.getInventory();
+        if (topInventory != null && topInventory != playerInventory && topInventory.getType() != InventoryType.CRAFTING) {
 
-        // Se tem outro inventário aberto (não é só o inventário do jogador)
-        if (topInventory != null && topInventory != playerInventory &&
-                topInventory.getType() != InventoryType.CRAFTING) {
-
-            // Bloqueia qualquer drag de item registrado
             event.setCancelled(true);
             debug("Prevented dragging GameShift item with other inventory open");
             return;
         }
 
-        // Verifica se algum slot do drag é de outro inventário
         for (int slot : event.getRawSlots()) {
             if (slot < topInventory.getSize() && topInventory != playerInventory) {
                 event.setCancelled(true);
@@ -205,9 +171,6 @@ public class ProtectListener implements Listener {
         }
     }
 
-    /**
-     * Bloqueia swap de mãos (offhand/mainhand) de itens registrados
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
         if (isRegistered(event.getMainHandItem()) || isRegistered(event.getOffHandItem())) {
@@ -216,9 +179,6 @@ public class ProtectListener implements Listener {
         }
     }
 
-    /**
-     * Bloqueia transferências automáticas (Hoppers, Shulker, etc.)
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryMove(InventoryMoveItemEvent event) {
         if (isRegistered(event.getItem())) {

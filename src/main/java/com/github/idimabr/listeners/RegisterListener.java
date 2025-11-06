@@ -87,9 +87,6 @@ public class RegisterListener implements Listener {
         debug("This item is registered with GameShift. Asset ID: " + assetId);
     }
 
-    /**
-     * Captura identificações feitas com scroll (clique direito)
-     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onIdentify(IdentifyItemEvent event) {
         if (event.isCancelled()) return;
@@ -109,9 +106,6 @@ public class RegisterListener implements Listener {
                 context.unidentifiedType + ":" + context.unidentifiedId);
     }
 
-    /**
-     * Captura a criação do item identificado
-     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onItemBuild(ItemBuildEvent event) {
         ItemStack item = event.getItemStack();

@@ -69,10 +69,6 @@ public class GameShiftAPI {
                 .timeout(REQUEST_TIMEOUT);
     }
 
-    /**
-     * Create a unique item in the GameShift system with all NBT data.
-     * ⚠️ ALL VALUES MUST BE STRINGS - GameShift API rejects native types
-     */
     public static CompletableFuture<JSONObject> createItem(UUID uuid, String foundBy, Location location,
                                                            long discoveredAt, Map<String, String> nbtAttributes,
                                                            String imageUrl, ItemStack item) {
@@ -87,7 +83,6 @@ public class GameShiftAPI {
 
         JSONArray attributes = new JSONArray();
 
-        // ==================== Metadados do Item (minex:*) ====================
         attributes.put(new JSONObject()
                 .put("traitType", "minex:found_by")
                 .put("value", foundBy));
@@ -100,12 +95,10 @@ public class GameShiftAPI {
                 .put("traitType", "minex:coords")
                 .put("value", location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ()));
 
-        // ✅ Converter Long para String
         attributes.put(new JSONObject()
                 .put("traitType", "minex:discovered_at")
                 .put("value", String.valueOf(discoveredAt)));
 
-        // ==================== Lore Dinâmica (como String JSON) ====================
         List<String> itemLore = new ArrayList<>();
         if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
             itemLore = item.getItemMeta().getLore();
@@ -117,21 +110,16 @@ public class GameShiftAPI {
                 loreJsonArray.put(line);
             }
 
-            // ✅ Converter JSONArray para String
             attributes.put(new JSONObject()
                     .put("traitType", "mmoitems:MMOITEMS_DYNAMIC_LORE")
                     .put("value", loreJsonArray.toString()));
         }
 
-        // ==================== Atributos NBT do MMOItems ====================
         for (Map.Entry<String, String> entry : nbtAttributes.entrySet()) {
             String key = entry.getKey();
             String rawValue = entry.getValue();
 
-            // Pular lore (já foi processada acima)
             if (key.equalsIgnoreCase("MMOITEMS_DYNAMIC_LORE")) continue;
-
-            // ✅ Sanitizar e garantir que é String
             String sanitizedValue = sanitizeToString(rawValue);
 
             attributes.put(new JSONObject()
@@ -157,26 +145,20 @@ public class GameShiftAPI {
         return executeRequestWithRetry(request, 0);
     }
 
-    /**
-     * Sanitiza qualquer valor para String (remove problemas de encoding)
-     * GameShift API só aceita strings nos atributos
-     */
     private static String sanitizeToString(String rawValue) {
         if (rawValue == null || rawValue.isEmpty()) {
             return "";
         }
 
-        // Limpar caracteres especiais e whitespace
         String sanitized = rawValue
                 .replace("\n", " ")
                 .replace("\r", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
 
-        // Truncar se muito grande
-        if (sanitized.length() > 500) {
-            sanitized = sanitized.substring(0, 497) + "...";
-        }
+        //if (sanitized.length() > 500) {
+        //    sanitized = sanitized.substring(0, 497) + "...";
+        //}
 
         return sanitized;
     }
@@ -217,15 +199,12 @@ public class GameShiftAPI {
         return getUserItems(userUuid, null);
     }
 
-    /**
-     * Executa uma requisição com controle de concorrência e retry
-     */
+
     private static CompletableFuture<JSONObject> executeRequestWithRetry(HttpRequest request, int attempt) {
         final int maxRetries = 3;
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Aguarda permissão para fazer a requisição (máximo 30 segundos)
                 if (!REQUEST_SEMAPHORE.tryAcquire(30, TimeUnit.SECONDS)) {
                     debug("[GameShiftAPI] ERROR: Timeout waiting for available request slot (too many concurrent requests)");
                     return null;
@@ -242,11 +221,9 @@ public class GameShiftAPI {
                         printProgress("Response status: " + response.statusCode());
                     }
 
-                    // Verifica erros HTTP
                     if (response.statusCode() >= 400) {
                         String errorMsg = "HTTP " + response.statusCode() + ": " + response.body();
 
-                        // Retry apenas para erros específicos
                         if (attempt < maxRetries && isRetryableStatus(response.statusCode())) {
                             debug("[GameShiftAPI] WARNING: " + errorMsg + " - Will retry");
                             return retryWithBackoff(request, attempt, errorMsg);
@@ -268,7 +245,6 @@ public class GameShiftAPI {
                 return null;
 
             } catch (Exception e) {
-                // Retry para erros de conexão/timeout
                 if (attempt < maxRetries && isRetryableException(e)) {
                     debug("[GameShiftAPI] WARNING: " + e.getMessage() + " - Will retry");
                     return retryWithBackoff(request, attempt, e.getMessage());
@@ -283,9 +259,6 @@ public class GameShiftAPI {
         });
     }
 
-    /**
-     * Realiza retry com backoff exponencial
-     */
     private static JSONObject retryWithBackoff(HttpRequest request, int attempt, String reason) {
         long delayMs = (long) Math.pow(2, attempt) * 1000;
 
@@ -304,18 +277,13 @@ public class GameShiftAPI {
         return executeRequestWithRetry(request, attempt + 1).join();
     }
 
-    /**
-     * Verifica se o status HTTP permite retry
-     */
+
     private static boolean isRetryableStatus(int statusCode) {
         return statusCode == 429 ||  // Too Many Requests
                 statusCode == 503 ||  // Service Unavailable
                 statusCode == 504;    // Gateway Timeout
     }
 
-    /**
-     * Verifica se a exceção permite retry
-     */
     private static boolean isRetryableException(Exception e) {
         String message = e.getMessage().toLowerCase();
         return message.contains("timeout") ||
@@ -324,9 +292,6 @@ public class GameShiftAPI {
                 message.contains("concurrent streams");
     }
 
-    /**
-     * Exibe progresso com barra visual no console (apenas quando DEBUG = true)
-     */
     private static void printProgress(String message) {
         int available = REQUEST_SEMAPHORE.availablePermits();
         int total = 20;
