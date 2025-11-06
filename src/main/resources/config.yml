@@ -1,0 +1,20 @@
+debug: false
+api-key: "your-api-key-here"
+collection-id: "136b05a2-55db-4f2e-bccf-fa5aa6bfec23"
+default-image-url: "https://minex.gg/wp-content/uploads/2025/06/MineX_logo.png"
+icon-confirmed: "&a[✔]"
+
+# Messages for the /sync command
+sync:
+  only-players: "&cOnly players can use this command!"
+  start: "&eSynchronizing your items..."
+  success: "&a✓ Your items have been successfully synchronized!"
+  success-with-items:
+    header: "&7Restored items:"
+    item-format: "&8 - &f{item}"
+  failed: "&c✗ Failed to synchronize your items!"
+  failed-with-items:
+    header: "&7Items waiting for inventory space:"
+    item-format: "&8 - &f{item}"
+    hint: "&eFree up some space and use the command again!"
+  error: "&cAn unexpected error occurred while synchronizing items: &f{error}"

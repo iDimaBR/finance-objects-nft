@@ -1,0 +1,6 @@
+name: FinanceObjects
+version: '${project.version}'
+main: com.github.idimabr.FinanceObjects
+api-version: '1.21'
+commands:
+  sync:
